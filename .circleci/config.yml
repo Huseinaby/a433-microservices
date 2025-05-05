@@ -1,0 +1,36 @@
+version: 2.1
+
+executors:
+  node-executor:
+    docker:
+      - image: cimg/node:18.20  # Menentukan image Docker untuk executor, dalam hal ini menggunakan image Node.js versi 18.20
+    working_directory: ~/app  # Menetapkan direktori kerja untuk executor
+
+jobs:
+  lint-dockerfile:
+    docker:
+      - image: hadolint/hadolint  # Menentukan image Docker untuk linting Dockerfile menggunakan hadolint
+    steps:
+      - checkout  # Checkout kode dari repository
+      - run: hadolint Dockerfile  # Menjalankan perintah linting terhadap Dockerfile untuk memastikan kualitas Dockerfile
+
+  build-app-karsajobs-ui:
+    docker:
+      - image: cimg/base:stable  # Menentukan image Docker untuk job build, menggunakan image base yang stabil
+    steps:
+      - checkout  # Checkout kode dari repository
+      - setup_remote_docker  # Menyiapkan remote Docker untuk menjalankan perintah Docker dalam job
+      - run:
+          name: Docker login
+          command: echo "$GHCR_TOKEN" | docker login ghcr.io -u huseinaby --password-stdin  # Login ke GitHub Container Registry menggunakan token yang disimpan dalam variabel GHCR_TOKEN
+      - run: docker build -t ghcr.io/huseinaby/karsajobs-ui:latest .  # Membangun Docker image dari Dockerfile yang ada di direktori saat ini
+      - run: docker push ghcr.io/huseinaby/karsajobs-ui:latest  # Push image yang sudah dibangun ke GitHub Container Registry
+
+workflows:
+  version: 2
+  build_and_push:
+    jobs:
+      - lint-dockerfile  # Job lint-dockerfile dijalankan pertama
+      - build-app-karsajobs-ui:
+          requires:
+            - lint-dockerfile  # Job build-app-karsajobs-ui baru dijalankan setelah lint-dockerfile selesai
